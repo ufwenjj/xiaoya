@@ -9,8 +9,9 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ reply: "系統錯誤：找不到 API 金鑰，請確認 Cloudflare 環境變數設定。" }), { headers: { "Content-Type": "application/json" } });
     }
 
-    // 2. 定義大腦備用清單 (優先嘗試最新版本，若失敗自動往下找)
+    // 2. 定義大腦備用清單 (將 Google 提示的最新 3.8 版放在第一順位)
     const modelsToTry = [
+      "gemini-3.8-flash",
       "gemini-2.5-flash",
       "gemini-2.0-flash",
       "gemini-1.5-flash"
