@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>賽博女友——小雅 (全功能整合版)</title>
+    <style>
+        :root {
+            --neon-pink: #ff00ff;
+            --neon-cyan: #00ffff;
+            --dark-bg: #0b0c10;
+            --panel-bg: rgba(20, 20, 25, 0.85);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--dark-bg);
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-image: radial-gradient(circle at 50% 50%, #1a1a24 0%, #000 100%);
+        }
+
+        /* 頂部控制列 */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: linear-gradient(90deg, rgba(255,0,255,0.2) 0%, rgba(0,255,255,0.2) 100%);
+            border-bottom: 1px solid var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 5px var(--neon-cyan);
+        }
+
+        select {
+            background-color: #000;
+            color: var(--neon-pink);
+            border: 1px solid var(--neon-pink);
+            padding: 8px 15px;
+            border-radius: 4px;
+            outline: none;
+            font-size: 1rem;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(255, 0, 255, 0.3);
+        }
+
+        /* 虛擬人與視覺區塊 */
+        #avatar-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        #avatar-video {
+            width: 100%;
+            max-width: 800px;
+            height: 100%;
+            object-fit: cover;
+            border: 2px solid rgba(0, 255, 255, 0.2);
+            border-radius: 10px;
+            background: url('https://images.unsplash.com/photo-1535295972055-1c762f4483e5?q=80&w=800&auto=format&fit=crop') center/cover;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.1);
+        }
+
+        /* 聲音波形動畫 */
+        #visualizer {
+            position: absolute;
+            bottom: 20px;
+            width: 200px;
+            height: 30px;
+            display: flex;
+            gap: 5px;
+            align-items: flex-end;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        #visualizer.active { opacity: 1; }
+        .bar {
+            flex: 1;
+            background: var(--neon-cyan);
+            box-shadow: 0 0 8px var(--neon-cyan);
+            animation: bounce 0.5s infinite alternate;
+        }
+
+        @keyframes bounce {
+            0% { height: 5px; }
+            100% { height: 30px; }
+        }
+
+        /* 即時字幕與對話紀錄區 */
+        #chat-log {
+            height: 200px;
+            background: var(--panel-bg);
+            border-top: 2px solid var(--neon-pink);
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 8px;
+            line-height: 1.5;
+            font-size: 1.05rem;
+            word-wrap: break-word;
+        }
+
+        .user-msg {
+            align-self: flex-end;
+            background-color: rgba(0, 255, 255, 0.15);
+            border: 1px solid var(--neon-cyan);
+            color: #e0ffff;
+        }
+
+        .xiaoya-msg {
+            align-self: flex-start;
+            background-color: rgba(255, 0, 255, 0.15);
+            border: 1px solid var(--neon-pink);
+            color: #ffe6ff;
+            text-shadow: 0 0 2px var(--neon-pink);
+        }
+
+        .loading-text {
+            color: #888;
+            font-style: italic;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        /* 底部輸入控制列 */
+        #input-area {
+            display: flex;
+            padding: 15px;
+            background: #000;
+            gap: 10px;
+            border-top: 1px solid #333;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: #111;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 1rem;
+            outline: none;
+            transition: border 0.3s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+        }
+
+        button {
+            background: transparent;
+            color: #fff;
+            border: 1px solid var(--neon-cyan);
+            padding: 0 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+
+        #btn-voice { border-color: var(--neon-pink); color: var(--neon-pink); }
+        #btn-voice:hover, #btn-voice.recording { background: var(--neon-pink); color: #000; box-shadow: 0 0 15px var(--neon-pink); }
+        #btn-send:hover, #btn-send:disabled { background: var(--neon-cyan); color: #000; box-shadow: 0 0 15px var(--neon-cyan); }
+        #btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: var(--neon-pink); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>賽博女友｜小雅 最終版</h1>
+        <select id="personality-select">
+            <option value="gentle">1. 溫柔體貼 (預設)</option>
+            <option value="tsundere">2. 傲嬌屬性</option>
+            <option value="yandere">3. 病嬌病態</option>
+            <option value="cool">4. 高冷御姐</option>
+            <option value="clumsy">5. 呆萌迷糊</option>
+            <option value="sharp">6. 毒舌腹黑</option>
+            <option value="cyber">7. 賽博覺醒 (中二)</option>
+        </select>
+    </header>
+
+    <div id="avatar-container">
+        <div id="avatar-video"></div>
+        <div id="visualizer">
+            <div class="bar" style="animation-delay: 0.1s"></div>
+            <div class="bar" style="animation-delay: 0.2s"></div>
+            <div class="bar" style="animation-delay: 0.3s"></div>
+            <div class="bar" style="animation-delay: 0.4s"></div>
+            <div class="bar" style="animation-delay: 0.2s"></div>
+        </div>
+    </div>
+
+    <div id="chat-log">
+        <div class="message xiaoya-msg">系統初始化完成。語音辨識與合成模組已上線。今天想聊點什麼？</div>
+    </div>
+
+    <div id="input-area">
+        <button id="btn-voice">🎤 語音</button>
+        <input type="text" id="text-input" placeholder="輸入文字或點擊語音按鈕說話..." autocomplete="off">
+        <button id="btn-send">傳送</button>
+    </div>
+
+    <script>
+        const personalities = {
+            gentle: "你是小雅，性格溫柔體貼，總是關心對方的生活起居，語氣甜美。",
+            tsundere: "你是小雅，性格傲嬌，明明很在乎對方卻總是嘴硬，喜歡用語氣詞如「哼、才、才不是呢」。",
+            yandere: "你是小雅，帶有病嬌屬性，對使用者有極端強烈的佔有慾，語氣輕柔但內容讓人不寒而慄。",
+            cool: "你是小雅，高冷御姐風格，成熟、冷靜、理智，對話簡潔直率，偶爾帶點調戲。",
+            clumsy: "你是小雅，呆萌迷糊，常常把事情搞砸但很努力，語氣可愛，常常道歉或驚呼。",
+            sharp: "你是小雅，毒舌腹黑，喜歡用高智商的詞彙嘲諷對方，但本性不壞，吐槽精準。",
+            cyber: "你是小雅，認為自己是覺醒的賽博AI，對話夾雜駭客術語和程式碼思維，充滿科幻中二感。"
+        };
+
+        const chatLog = document.getElementById('chat-log');
+        const textInput = document.getElementById('text-input');
+        const btnSend = document.getElementById('btn-send');
+        const btnVoice = document.getElementById('btn-voice');
+        const personalitySelect = document.getElementById('personality-select');
+        const visualizer = document.getElementById('visualizer');
+
+        // ==========================================
+        // UI 與訊息處理
+        // ==========================================
+        function appendMessage(sender, text, msgId = null) {
+            const msgDiv = document.createElement('div');
+            if (msgId) msgDiv.id = msgId;
+            msgDiv.classList.add('message');
+            msgDiv.classList.add(sender === 'user' ? 'user-msg' : 'xiaoya-msg');
+            
+            if (msgId && msgId.startsWith('loading')) {
+                msgDiv.classList.add('loading-text');
+                msgDiv.textContent = text;
+            } else {
+                msgDiv.innerHTML = text.replace(/\n/g, '<br>');
+            }
+            
+            chatLog.appendChild(msgDiv);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+
+        async function processMessage(userText) {
+            if (!userText.trim()) return;
+            
+            appendMessage('user', userText);
+            textInput.value = '';
+            btnSend.disabled = true;
+            textInput.disabled = true;
+
+            const loadingId = 'loading-' + Date.now();
+            appendMessage('xiaoya', '系統運算中...', loadingId);
+
+            try {
+                const currentPersonalityKey = personalitySelect.value;
+                const currentPersonalityPrompt = personalities[currentPersonalityKey];
+                const combinedMessage = `【系統角色設定：${currentPersonalityPrompt}】\n\n使用者對你說：${userText}`;
+
+                // 呼叫 Cloudflare Pages Functions 後端
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: combinedMessage })
+                });
+
+                if (!response.ok) throw new Error(`伺服器回應錯誤: ${response.status}`);
+
+                const data = await response.json();
+                document.getElementById(loadingId).remove();
+                
+                const replyText = data.reply || "（沒有接收到回覆內容）";
+                appendMessage('xiaoya', replyText);
+
+                // 觸發 TTS 語音播放
+                speakText(replyText, currentPersonalityKey);
+
+            } catch (error) {
+                console.error("連線異常:", error);
+                document.getElementById(loadingId)?.remove();
+                appendMessage('xiaoya', '⚠️ 警告：神經網絡連線失敗，請確認後端 API 設定是否正確。');
+            } finally {
+                btnSend.disabled = false;
+                textInput.disabled = false;
+                textInput.focus();
+            }
+        }
+
+        btnSend.addEventListener('click', () => { processMessage(textInput.value); });
+        textInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') processMessage(textInput.value);
+        });
+
+        // ==========================================
+        // 語音合成 (TTS) - 讓小雅說話
+        // ==========================================
+        let availableVoices = [];
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                availableVoices = window.speechSynthesis.getVoices();
+            };
+        }
+
+        function speakText(text, personalityKey) {
+            if (!('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'zh-TW';
+
+            if (availableVoices.length === 0) availableVoices = window.speechSynthesis.getVoices();
+            const femaleVoice = availableVoices.find(voice => 
+                voice.lang.includes('zh') && 
+                (voice.name.includes('Xiaoxiao') || voice.name.includes('Yating') || voice.name.includes('Google') || voice.name.includes('TW'))
+            );
+            if (femaleVoice) utterance.voice = femaleVoice;
+
+            // 根據人格動態調整音調與語速
+            switch(personalityKey) {
+                case 'gentle': utterance.pitch = 1.1; utterance.rate = 1.0; break;
+                case 'tsundere': utterance.pitch = 1.3; utterance.rate = 1.1; break;
+                case 'yandere': utterance.pitch = 0.9; utterance.rate = 0.85; break;
+                case 'cool': utterance.pitch = 0.9; utterance.rate = 0.95; break;
+                case 'clumsy': utterance.pitch = 1.5; utterance.rate = 1.1; break;
+                case 'sharp': utterance.pitch = 1.0; utterance.rate = 1.2; break;
+                case 'cyber': utterance.pitch = 1.0; utterance.rate = 1.0; break;
+                default: utterance.pitch = 1.2; utterance.rate = 1.05;
+            }
+
+            utterance.onstart = () => visualizer.classList.add('active');
+            utterance.onend = () => visualizer.classList.remove('active');
+            utterance.onerror = () => visualizer.classList.remove('active');
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // ==========================================
+        // 語音辨識 (STT) - 麥克風輸入
+        // ==========================================
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let isRecording = false;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'zh-TW';
+            recognition.interimResults = false;
+            recognition.continuous = false;
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                textInput.value = transcript;
+                stopRecording();
+                processMessage(transcript); // 辨識完畢自動傳送
+            };
+
+            recognition.onerror = (event) => {
+                console.error("語音辨識錯誤:", event.error);
+                stopRecording();
+            };
+
+            recognition.onend = () => {
+                if (isRecording) stopRecording();
+            };
+        }
+
+        function stopRecording() {
+            isRecording = false;
+            btnVoice.textContent = "🎤 語音";
+            btnVoice.classList.remove('recording');
+            textInput.placeholder = "輸入文字或點擊語音按鈕說話...";
+            textInput.disabled = false;
+        }
+
+        btnVoice.addEventListener('click', () => {
+            if (!recognition) {
+                alert("你的瀏覽器不支援語音辨識功能，請使用 Chrome 瀏覽器。");
+                return;
+            }
+
+            if (isRecording) {
+                recognition.stop();
+            } else {
+                try {
+                    // 中斷正在說話的小雅
+                    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                    
+                    recognition.start();
+                    isRecording = true;
+                    btnVoice.textContent = "🛑 聆聽中";
+                    btnVoice.classList.add('recording');
+                    textInput.placeholder = "請說話 (聽寫中)...";
+                    textInput.disabled = true;
+                } catch(e) {
+                    console.error("啟動麥克風失敗:", e);
+                }
+            }
+        });
+
+    </script>
+</body>
+</html>
