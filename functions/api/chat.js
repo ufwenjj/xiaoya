@@ -11,53 +11,52 @@ export async function onRequestPost(context) {
     }
 
     const modelsToTry = [
-      '@cf/google/gemma-4-26b-a4b-it',        
-      '@cf/meta/llama-3.1-8b-instruct',       
-      '@cf/google/gemma-7b-it',               
-      '@cf/mistral/mistral-7b-instruct-v0.1'  
+      '@cf/google/gemma-4-26b-a4b-it',        // 首選：Google 最新 Gemma 4 高智商大腦
+      '@cf/meta/llama-3.1-8b-instruct',       // 備援 1：Meta 主流開源對話模型
+      '@cf/google/gemma-7b-it',               // 備援 2：Google 穩定版對話模型
+      '@cf/mistral/mistral-7b-instruct-v0.1'  // 備援 3：Mistral 穩定版 (最後防線)
     ];
 
-    let lastErrorMessage = "";
-    let aiResponse = null;
+    let lastErrorMessage = "所有模型均未能產生有效回覆";
+    let finalReply = "";
 
+    // 自動依序嘗試連線
     for (const model of modelsToTry) {
       try {
-        aiResponse = await env.AI.run(model, {
+        const aiResponse = await env.AI.run(model, {
           messages: [
             { role: 'system', content: '你是一位溫柔體貼的賽博女友，名叫小雅。請務必使用簡短、口語化的繁體中文回覆我，字數嚴格控制在 30 字以內，不要使用簡體字。' },
             { role: 'user', content: userMessage }
           ],
-          // 【關鍵修正 1】把額度放寬到 300，讓她有足夠的空間「思考」並把真正的回答印出來
-          max_tokens: 300
+          // 大幅放寬限制，讓高智商模型有充足的內部運算空間
+          max_tokens: 1024
         });
         
-        if (aiResponse) break;
+        // 嘗試解析文字 (同時支援新舊 API 格式)
+        let text = aiResponse.response;
+        if (!text && aiResponse.choices && aiResponse.choices.length > 0) {
+          text = aiResponse.choices[0].message.content;
+        }
+
+        // 💡 關鍵修正：只有當真的收到「非空白的文字」時，才算成功並跳出迴圈
+        if (text && text.trim() !== "") {
+          finalReply = text;
+          break; 
+        }
         
       } catch (e) {
+        // 紀錄錯誤並繼續嘗試清單中的下一個模型
         lastErrorMessage = e.message;
       }
     }
 
-    if (aiResponse) {
-      // 【關鍵修正 2】同時支援舊版 (response) 與新版 (choices[0].message.content) 的拆包裹格式
-      let finalReply = aiResponse.response;
-      
-      if (!finalReply && aiResponse.choices && aiResponse.choices.length > 0) {
-        finalReply = aiResponse.choices[0].message.content;
-      }
-
-      // 如果 AI 還是不小心回傳空白，給個防呆回覆
-      if (!finalReply || finalReply.trim() === "") {
-        finalReply = "（小雅思考了一下，對你露出溫柔的微笑，沒有說話）";
-      }
-
+    if (finalReply) {
       return new Response(JSON.stringify({ 
         reply: finalReply 
       }), { headers: { "Content-Type": "application/json" } });
-      
     } else {
       return new Response(JSON.stringify({ 
-        reply: `所有備用大腦皆連線失敗。最後錯誤: ${lastErrorMessage}` 
+        reply: `(小雅的大腦陷入混亂，請稍後再試。最後錯誤: ${lastErrorMessage})` 
       }), { headers: { "Content-Type": "application/json" } });
     }
 
