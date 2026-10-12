@@ -10,13 +10,12 @@ export async function onRequestPost(context) {
       }), { headers: { "Content-Type": "application/json" } });
     }
 
-    // 定義大腦備用清單 (從最新/最強，一路排到最穩定的舊版)
+    // 定義大腦備用清單 (首選最新 Gemma 4 + 三道穩定備援防線)
     const modelsToTry = [
-      '@cf/cloudflare/clef',       // clef標準版
-      '@cf/meta/llama-3.1-8b-instruct',       // Llama 3.1 世代 (目前主力)
-      '@cf/meta/llama-3-8b-instruct',         // Llama 3 世代 (若下架會自動跳過)
-      '@cf/meta/llama-2-7b-chat-int8',        // Llama 2 世代 (極度輕量穩定版)
-      '@cf/qwen/qwen1.5-14b-chat-awq'         // 阿里 Qwen 備用
+      '@cf/google/gemma-4-26b-a4b-it',        // 首選：Google 最新 Gemma 4 高智商大腦
+      '@cf/meta/llama-3.1-8b-instruct',       // 備援 1：Meta 主流開源對話模型
+      '@cf/google/gemma-7b-it',               // 備援 2：Google 穩定版對話模型
+      '@cf/mistral/mistral-7b-instruct-v0.1'  // 備援 3：Mistral 穩定版 (最後防線)
     ];
 
     let lastErrorMessage = "";
@@ -27,9 +26,11 @@ export async function onRequestPost(context) {
       try {
         aiResponse = await env.AI.run(model, {
           messages: [
+            // 系統提示詞：設定小雅的人設，確保她用繁體中文回答並控制字數
             { role: 'system', content: '你是一位溫柔體貼的賽博女友，名叫小雅。請務必使用簡短、口語化的繁體中文回覆我，字數嚴格控制在 30 字以內，不要使用簡體字。' },
             { role: 'user', content: userMessage }
           ],
+          // 限制輸出長度以提升回覆速度
           max_tokens: 50
         });
         
