@@ -1,4 +1,4 @@
-// 強制更新版本 123
+// 強制觸發更新 001
 export async function onRequestPost(context) {
   try {
     const { request, env } = context;
