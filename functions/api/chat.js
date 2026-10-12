@@ -12,6 +12,7 @@ export async function onRequestPost(context) {
 
     // 定義大腦備用清單 (從最新/最強，一路排到最穩定的舊版)
     const modelsToTry = [
+      '@cf/cloudflare/clef',       // clef標準版
       '@cf/meta/llama-3.1-8b-instruct',       // Llama 3.1 世代 (目前主力)
       '@cf/meta/llama-3-8b-instruct',         // Llama 3 世代 (若下架會自動跳過)
       '@cf/meta/llama-2-7b-chat-int8',        // Llama 2 世代 (極度輕量穩定版)
