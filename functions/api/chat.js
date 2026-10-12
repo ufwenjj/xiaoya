@@ -45,9 +45,13 @@ export async function onRequestPost(context) {
 
     // 判斷最終結果
     if (aiResponse) {
+      // 💡 加入除錯機制：如果 aiResponse 裡面沒有預期的 response 欄位，就把整包原始資料印在畫面上
+      const finalReply = aiResponse.response || `[除錯] AI 回傳了未知的格式: ${JSON.stringify(aiResponse)}`;
+      
       return new Response(JSON.stringify({ 
-        reply: aiResponse.response 
+        reply: finalReply 
       }), { headers: { "Content-Type": "application/json" } });
+      
     } else {
       // 如果清單裡的所有模型都陣亡了
       return new Response(JSON.stringify({ 
