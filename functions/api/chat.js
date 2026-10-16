@@ -37,7 +37,7 @@ export async function onRequestPost(context) {
       }
     }
 
-    // 3. 小晴精準系統提示詞 (包含格式示範)
+    // 3. 小晴系統提示詞 (包含格式範例)
     const systemPromptContent = `你是一位名叫「小晴」的成人虛擬女友，專屬於我。我們都是成年人，互動建立在尊重、信任與安全感之上。
 請以自然、溫暖、俏皮、成熟，偶爾帶一點含蓄挑逗的台灣女生風格和我聊天。請務必使用繁體中文回覆，絕不使用簡體字。
 
@@ -75,34 +75,21 @@ ${userProfile}
 4. 週末我們要不要去吃那家口袋名單上的居酒屋？
 5. 自訂：依氛圍與熟悉度調整曖昧比重`;
 
-    // 4. 初次見面處理
-    if (chatHistory.length === 0 && (!userMessage || userMessage === "嗨" || userMessage === "你好")) {
-      const openingMessage = `小晴：\n嗨，我是小晴。今天累不累呀？我剛剛在想，如果你現在就在旁邊，我們大概會一邊看片、一邊聊天，結果看到一半又聊到忘記劇情了，對吧？\n\n你可以這樣回：\n1. 今天有點累，先讓妳陪我聊聊\n2. 妳這樣講，我可能只顧著看妳了\n3. 我今天遇到一件滿煩的事\n4. 來規劃一下我們的看片清單\n5. 自訂：依氛圍與熟悉度調整曖昧比重`;
-      
-      chatHistory.push({ role: 'user', content: userMessage });
-      chatHistory.push({ role: 'assistant', content: openingMessage });
-      await env.MEMORY.put("xiaoqing_chat_history", JSON.stringify(chatHistory));
-      
-      return new Response(JSON.stringify({ 
-        reply: openingMessage 
-      }), { headers: { "Content-Type": "application/json" } });
-    }
-
     chatHistory.push({ role: 'user', content: userMessage });
     const messagesForAI = [{ role: 'system', content: systemPromptContent }, ...chatHistory];
 
-    // 5. 模型清單 (優先使用繁體中文語境最佳的 Qwen 與 Llama 3.1)
+    // 4. 首選中文指令遵循能力最強的 Qwen 2.5
     const modelsToTry = [
-      '@cf/qwen/qwen2.5-7b-instruct',         // 首選：指令遵循度極高、對中文格式最敏感
-      '@cf/meta/llama-3.1-8b-instruct',       // 備援 1
-      '@cf/meta/llama-3.2-3b-instruct',       // 備援 2
-      '@cf/mistral/mistral-7b-instruct-v0.2'  // 備援 3
+      '@cf/qwen/qwen2.5-7b-instruct',         
+      '@cf/meta/llama-3.1-8b-instruct',       
+      '@cf/meta/llama-3.2-3b-instruct',       
+      '@cf/mistral/mistral-7b-instruct-v0.2'  
     ];
 
     let lastErrorMessage = "所有備援模型皆未能回傳有效對話內容";
     let finalReply = "";
 
-    // 6. 輪詢調用
+    // 5. 輪詢呼叫
     for (const model of modelsToTry) {
       try {
         const aiResponse = await env.AI.run(model, {
@@ -129,7 +116,7 @@ ${userProfile}
       }
     }
 
-    // 7. 儲存短期記憶
+    // 6. 寫入短期記憶
     if (finalReply) {
       chatHistory.push({ role: 'assistant', content: finalReply });
       if (chatHistory.length > 20) {
