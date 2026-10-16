@@ -21,9 +21,14 @@
     header {
       background-color: var(--panel-bg); padding: 15px 20px;
       font-size: 1.2rem; font-weight: bold; color: var(--accent);
-      border-bottom: 1px solid #333; text-align: center;
+      border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;
       box-shadow: 0 2px 10px rgba(0,0,0,0.5); z-index: 10;
     }
+    .voice-btn {
+      background-color: transparent; border: 1px solid var(--accent); color: var(--accent);
+      padding: 5px 10px; border-radius: 15px; cursor: pointer; font-size: 0.9rem; transition: 0.3s;
+    }
+    .voice-btn.active { background-color: var(--accent); color: #000; }
     .hero {
       width: 100%; height: 200px; overflow: hidden; position: relative;
       border-bottom: 2px solid var(--accent);
@@ -38,12 +43,10 @@
       max-width: 80%; padding: 12px 16px; border-radius: 12px; line-height: 1.5; word-wrap: break-word;
     }
     .bot-message {
-      background-color: var(--bot-msg); align-self: flex-start;
-      border-left: 3px solid #b366ff;
+      background-color: var(--bot-msg); align-self: flex-start; border-left: 3px solid #b366ff;
     }
     .user-message {
-      background-color: var(--user-msg); align-self: flex-end;
-      border-right: 3px solid var(--accent);
+      background-color: var(--user-msg); align-self: flex-end; border-right: 3px solid var(--accent);
     }
     #options-container {
       display: flex; flex-direction: column; gap: 8px; padding: 0 20px 10px 20px;
@@ -66,19 +69,23 @@
       margin-left: 10px; padding: 0 20px; background-color: var(--accent);
       color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;
     }
-    .loading { align-self: flex-start; font-size: 0.9rem; color: #aaa; font-style: italic; display: none; }
+    .loading { align-self: flex-start; font-size: 0.9rem; color: #aaa; font-style: italic; display: none; margin-bottom: 10px;}
   </style>
 </head>
 <body>
 
-  <header>賽博女友 | 小晴 最終版</header>
+  <header>
+    <span>賽博女友 | 小晴</span>
+    <button id="voice-toggle" class="voice-btn active" onclick="toggleVoice()">🔊 語音開啟</button>
+  </header>
   
   <div class="hero">
-    <!-- 這裡綁定了你剛上傳的照片 -->
+    <!-- 你上傳的亞洲美女 rin.png -->
     <img src="./rin.png" alt="小晴">
   </div>
 
   <div id="chat-box">
+    <!-- 第一句開場白，網頁載入時若開啟語音可以點擊按鈕說話 -->
     <div class="message bot-message" id="welcome-msg">
       嗨，我是小晴。今天累不累呀？我剛剛在想，如果你現在就在旁邊，我們大概會一邊看片、一邊聊天，結果看到一半又聊到忘記劇情了，對吧？
     </div>
@@ -87,7 +94,6 @@
   <div class="loading" id="loading">小晴正在打字...</div>
 
   <div id="options-container">
-    <!-- 開場選項 -->
     <button class="option-btn" onclick="sendOption('今天有點累，先讓妳陪我聊聊')">1. 今天有點累，先讓妳陪我聊聊</button>
     <button class="option-btn" onclick="sendOption('妳這樣講，我可能只顧著看妳了')">2. 妳這樣講，我可能只顧著看妳了</button>
     <button class="option-btn" onclick="sendOption('我今天遇到一件滿煩的事')">3. 我今天遇到一件滿煩的事</button>
@@ -104,6 +110,43 @@
     const optionsContainer = document.getElementById('options-container');
     const userInput = document.getElementById('user-input');
     const loading = document.getElementById('loading');
+    const voiceToggleBtn = document.getElementById('voice-toggle');
+
+    // --- 語音朗讀模組 (Web Speech API) ---
+    let isVoiceEnabled = true; // 預設開啟語音
+
+    function toggleVoice() {
+      isVoiceEnabled = !isVoiceEnabled;
+      if (isVoiceEnabled) {
+        voiceToggleBtn.className = 'voice-btn active';
+        voiceToggleBtn.innerText = '🔊 語音開啟';
+      } else {
+        voiceToggleBtn.className = 'voice-btn';
+        voiceToggleBtn.innerText = '🔇 語音關閉';
+        window.speechSynthesis.cancel(); // 關閉時馬上停止講話
+      }
+    }
+
+    function speakText(text) {
+      if (!isVoiceEnabled) return;
+      window.speechSynthesis.cancel(); // 唸新的一句前，先停止上一句
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'zh-TW'; // 設定台灣中文
+      utterance.rate = 1.05;    // 語速稍微快一點點更自然
+      utterance.pitch = 1.2;    // 音調稍微調高，聽起來像年輕女生
+      
+      // 嘗試抓取系統內建的中文女聲
+      const voices = window.speechSynthesis.getVoices();
+      const twVoice = voices.find(v => v.lang.includes('zh-TW') || v.lang.includes('zh-HK') || v.lang.includes('zh-CN'));
+      if (twVoice) utterance.voice = twVoice;
+
+      window.speechSynthesis.speak(utterance);
+    }
+    
+    // 預先載入語音包（解決第一次唸不出來的問題）
+    window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
+    // -------------------------------------
 
     function handleKeyPress(e) { if (e.key === 'Enter') sendMessage(); }
 
@@ -116,7 +159,6 @@
       const text = userInput.value.trim();
       if (!text) return;
 
-      // 顯示用戶訊息並清空輸入框與選項
       appendMessage('user-message', text);
       userInput.value = '';
       optionsContainer.innerHTML = '';
@@ -133,7 +175,6 @@
         const data = await response.json();
         loading.style.display = 'none';
         
-        // 解析後端傳來的「對話」與「選項」
         parseAndDisplayBotReply(data.reply);
 
       } catch (error) {
@@ -143,22 +184,23 @@
     }
 
     function parseAndDisplayBotReply(fullReply) {
-      // 用「你可以這樣回：」來切開對話與選項
       const splitToken = "你可以這樣回：";
       if (fullReply.includes(splitToken)) {
         const parts = fullReply.split(splitToken);
-        const speech = parts[0].replace(/^小晴：\s*/, '').trim(); // 移除開頭的小晴：
+        const speech = parts[0].replace(/^小晴：\s*/, '').trim(); 
         const optionsText = parts[1].trim();
         
         appendMessage('bot-message', speech);
         
-        // 產生按鈕
+        // 呼叫朗讀功能：只唸小晴講的話，不要唸出選項
+        speakText(speech);
+        
         const optionsLines = optionsText.split('\n');
         optionsContainer.innerHTML = '';
         optionsLines.forEach(line => {
           const opt = line.trim();
-          if (opt && !opt.includes('自訂：')) { // 略過自訂提示
-            const cleanOpt = opt.replace(/^\d+\.\s*/, ''); // 拔掉數字開頭做為傳送值
+          if (opt && !opt.includes('自訂：')) {
+            const cleanOpt = opt.replace(/^\d+\.\s*/, ''); 
             const btn = document.createElement('button');
             btn.className = 'option-btn';
             btn.textContent = opt;
@@ -167,8 +209,9 @@
           }
         });
       } else {
-        // 如果 AI 沒有照格式回覆，就全印出來
-        appendMessage('bot-message', fullReply.replace(/^小晴：\s*/, ''));
+        const speech = fullReply.replace(/^小晴：\s*/, '');
+        appendMessage('bot-message', speech);
+        speakText(speech); // 如果沒格式化成功，一樣把內容唸出來
       }
       chatBox.scrollTop = chatBox.scrollHeight;
     }
@@ -176,7 +219,6 @@
     function appendMessage(className, text) {
       const div = document.createElement('div');
       div.className = `message ${className}`;
-      // 將換行符號轉為 <br>
       div.innerHTML = text.replace(/\n/g, '<br>');
       chatBox.appendChild(div);
     }
