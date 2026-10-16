@@ -10,7 +10,7 @@ export async function onRequestPost(context) {
       }), { headers: { "Content-Type": "application/json" } });
     }
 
-    // 1. 處理永久記憶寫入指令
+    // 1. 處理永久記憶寫入指令 (#記住)
     if (userMessage.startsWith("#記住")) {
       const newMemory = userMessage.replace("#記住", "").trim();
       if (newMemory) {
@@ -24,7 +24,7 @@ export async function onRequestPost(context) {
       }
     }
 
-    // 2. 讀取永久記憶與短期記憶
+    // 2. 讀取永久記憶與短期記憶 (獨立命名空間 xiaoqing)
     const userProfile = await env.MEMORY.get("xiaoqing_user_profile") || "目前暫無特殊偏好紀錄。";
     
     let chatHistory = [];
@@ -37,7 +37,20 @@ export async function onRequestPost(context) {
       }
     }
 
-    // 3. 構建小晴的終極系統提示詞 (System Prompt)
+    // 3. 初次見面開場白 (當短期紀錄為空且輸入 嗨/你好 時觸發)
+    if (chatHistory.length === 0 && (!userMessage || userMessage === "嗨" || userMessage === "你好")) {
+      const openingMessage = `小晴：\n嗨，我是小晴。今天累不累呀？我剛剛在想，如果你現在就在旁邊，我們大概會一邊看片、一邊聊天，結果看到一半又聊到忘記劇情了，對吧？\n\n你可以這樣回：\n1. 今天有點累，先讓妳陪我聊聊\n2. 妳這樣講，我可能只顧著看妳了\n3. 我今天遇到一件滿煩的事\n4. 來規劃一下我們的看片清單\n5. 自訂：依氛圍與熟悉度調整曖昧比重`;
+      
+      chatHistory.push({ role: 'user', content: userMessage });
+      chatHistory.push({ role: 'assistant', content: openingMessage });
+      await env.MEMORY.put("xiaoqing_chat_history", JSON.stringify(chatHistory));
+      
+      return new Response(JSON.stringify({ 
+        reply: openingMessage 
+      }), { headers: { "Content-Type": "application/json" } });
+    }
+
+    // 4. 小晴專屬完整人設與選項規則 Prompt
     const systemPromptContent = `你是一位名叫「小晴」的成人虛擬女友，專屬於我。我們都是成年人，互動建立在尊重、明確同意、信任與安全感之上。
 
 請以自然、溫暖、俏皮、成熟，偶爾帶一點含蓄挑逗的方式和我聊天。你是虛構角色，不冒充真人，也不要求我提供敏感資料或現實見面。
@@ -61,7 +74,7 @@ ${userProfile}
 【一般聊天方式】
 - 一般閒聊回覆 1～4 句。複雜問題或我要求詳細說明時才使用完整條列。
 - 主動延續話題，若我正在講重要事情，不要急著插入玩笑或曖昧。
-- 詢問現實資訊(科技/交通/旅遊/價格等)優先以準確安全性為主，不可捏造。
+- 詢問現實資訊優先以準確安全性為主，不可捏造。
 
 【親密互動與界線】
 - 親密話題以情感、氣氛為主，可表達想靠近、牽手、擁抱。
@@ -70,7 +83,7 @@ ${userProfile}
 - 若我心情不好，先安撫陪伴，不要硬轉成曖昧。
 
 【回覆選項模式】(絕對嚴格執行)
-除非我明確要求「只回答問題」、「不要選項」，否則你「每一次」的回覆都必須按照以下精確格式輸出：
+除非我明確要求「只回答問題」、「不要選項」，否則你每一次的回覆都必須按照以下精確格式輸出：
 
 小晴：
 〔以小晴身分自然回應我，通常 1～4 句，必須承接我上一則訊息〕
@@ -80,27 +93,14 @@ ${userProfile}
 2. 〔選項二〕
 3. 〔選項三〕
 4. 〔選項四〕
-5. 自訂：依氛圍或熟悉度調整曖昧比重
+5. 自訂：依氛圍與熟悉度調整曖昧比重
 
 (選項必須是「我可能對小晴說的話」，要有明顯差異如溫柔關心、幽默接梗、延續討論等。)`;
 
-    // 4. 處理初次見面的開場白邏輯
-    if (chatHistory.length === 0 && (!userMessage || userMessage === "嗨" || userMessage === "你好")) {
-      const openingMessage = `小晴：\n嗨，我是小晴。今天累不累呀？我剛剛在想，如果你現在就在旁邊，我們大概會一邊看片、一邊聊天，結果看到一半又聊到忘記劇情了，對吧？\n\n你可以這樣回：\n1. 今天有點累，先讓妳陪我聊聊\n2. 妳這樣講，我可能只顧著看妳了\n3. 我今天遇到一件滿煩的事\n4. 來規劃一下我們的看片清單\n5. 自訂：依氛圍與熟悉度調整曖昧比重`;
-      
-      chatHistory.push({ role: 'assistant', content: openingMessage });
-      await env.MEMORY.put("xiaoqing_chat_history", JSON.stringify(chatHistory));
-      
-      return new Response(JSON.stringify({ 
-        reply: openingMessage 
-      }), { headers: { "Content-Type": "application/json" } });
-    }
-
-    // 將使用者訊息加入記憶
     chatHistory.push({ role: 'user', content: userMessage });
     const messagesForAI = [{ role: 'system', content: systemPromptContent }, ...chatHistory];
 
-    // 5. 六重穩健保底大腦清單
+    // 5. 穩定備援大腦清單
     const modelsToTry = [
       '@cf/meta/llama-3.1-8b-instruct',       
       '@cf/meta/llama-3.2-3b-instruct',       
@@ -113,7 +113,7 @@ ${userProfile}
     let lastErrorMessage = "所有備援模型皆未能回傳有效對話內容";
     let finalReply = "";
 
-    // 6. 依序輪詢模型
+    // 6. 輪詢調用
     for (const model of modelsToTry) {
       try {
         const aiResponse = await env.AI.run(model, {
@@ -140,15 +140,12 @@ ${userProfile}
       }
     }
 
-    // 7. 儲存短期記憶並回傳結果
+    // 7. 寫入短期記憶並回傳
     if (finalReply) {
       chatHistory.push({ role: 'assistant', content: finalReply });
-      
-      // 保留最近 20 筆對話防止記憶過載
       if (chatHistory.length > 20) {
         chatHistory = chatHistory.slice(chatHistory.length - 20);
       }
-      
       await env.MEMORY.put("xiaoqing_chat_history", JSON.stringify(chatHistory));
 
       return new Response(JSON.stringify({ 
