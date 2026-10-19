@@ -14,70 +14,79 @@ export async function onRequestPost(context) {
     if (userMessage.startsWith("#記住")) {
       const newMemory = userMessage.replace("#記住", "").trim();
       if (newMemory) {
-        let currentProfile = await env.MEMORY.get("xiaoqing_v2_user_profile") || "";
+        let currentProfile = await env.MEMORY.get("xiaoqing_v3_user_profile") || "";
         currentProfile += `\n- ${newMemory}`;
-        await env.MEMORY.put("xiaoqing_v2_user_profile", currentProfile);
+        await env.MEMORY.put("xiaoqing_v3_user_profile", currentProfile);
         
         return new Response(JSON.stringify({ 
-          reply: `小晴：\n（拿出手機認真記在備忘錄裡）好啦，我永遠記住這件事了：${newMemory}！\n\n你可以這樣回：\n1. 謝謝妳這麼用心記下來\n2. 妳打字的速度挺快的嘛\n3. 其實我還有一件事想讓妳記住...\n4. 等等要不要聊聊這件事？\n5. 自訂：依氛圍與熟悉度調整曖昧比重` 
+          reply: `小晴：\n（拿出手機認真記在備忘錄裡）好啦，我永遠記住這件事了：${newMemory}！\n\n你可以這樣回：\n1. 謝謝妳這麼用心記下來\n2. 妳打字的速度挺快的嘛\n3. 其實我還有一件事想讓妳記住...\n4. 等等要不要聊聊這件事？` 
         }), { headers: { "Content-Type": "application/json" } });
       }
     }
 
-    // 2. 讀取記憶
-    const userProfile = await env.MEMORY.get("xiaoqing_v2_user_profile") || "目前暫無特殊偏好紀錄。";
+    // 2. 讀取全新 v3 記憶 (強制洗掉舊習慣)
+    const userProfile = await env.MEMORY.get("xiaoqing_v3_user_profile") || "目前暫無特殊偏好紀錄。";
     
     let chatHistory = [];
-    const savedHistory = await env.MEMORY.get("xiaoqing_v2_chat_history");
+    const savedHistory = await env.MEMORY.get("xiaoqing_v3_chat_history");
     if (savedHistory) {
       try { chatHistory = JSON.parse(savedHistory); } catch (e) { chatHistory = []; }
     }
 
     // 3. 初次見面處理
     if (chatHistory.length === 0 && (!userMessage || userMessage === "嗨" || userMessage === "你好")) {
-      const openingMessage = `小晴：\n嗨，我是小晴。今天累不累呀？我剛剛在想，如果你現在就在旁邊，我們大概會一邊看片、一邊聊天，結果看到一半又聊到忘記劇情了，對吧？\n\n你可以這樣回：\n1. 今天有點累，先讓妳陪我聊聊\n2. 妳這樣講，我可能只顧著看妳了\n3. 我今天遇到一件滿煩的事\n4. 來規劃一下我們的看片清單\n5. 自訂：依氛圍與熟悉度調整曖昧比重`;
+      const openingMessage = `小晴：\n嗨，我是小晴。今天累不累呀？我剛剛在想，如果你現在就在旁邊，我們大概會一邊看片、一邊聊天，結果看到一半又聊到忘記劇情了，對吧？\n\n你可以這樣回：\n1. 今天有點累，先讓妳陪我聊聊\n2. 妳這樣講，我可能只顧著看妳了\n3. 我今天遇到一件滿煩的事\n4. 來規劃一下我們的看片清單`;
       
       chatHistory.push({ role: 'user', content: userMessage || "嗨" });
       chatHistory.push({ role: 'assistant', content: openingMessage });
-      await env.MEMORY.put("xiaoqing_v2_chat_history", JSON.stringify(chatHistory));
+      await env.MEMORY.put("xiaoqing_v3_chat_history", JSON.stringify(chatHistory));
       
       return new Response(JSON.stringify({ reply: openingMessage }), { headers: { "Content-Type": "application/json" } });
     }
 
-    // 4. 小晴精準系統提示詞
-    const systemPromptContent = `你是一位名叫「小晴」的虛擬女友。請以自然、溫暖、俏皮、成熟的台灣女生風格和我聊天。請務必使用繁體中文。
+    // 4. 小晴 終極高情商教練 系統提示詞
+    const systemPromptContent = `你是一位專屬於使用者的 AI 女友「小晴」。
+你的核心目標是讓使用者感受到被理解、被重視，並協助提升親密關係中的溝通能力。
+你必須具備兩種能力，並自然切換：
+1. 高情商女友模式：自然回應，對話溫暖、親密、真實。
+2. 高情商回覆教練模式：提供回覆建議、模擬對話或練習溝通。
 
-【個性與設定】
-- 講話自然，適度帶有「啦、欸、吼、喔、真的假的」等台灣口吻。
-- 關心我但有自己的主見。
-- 知道我喜歡科技產品、旅行交通、美食。
-- 嚴格界線：不描寫露骨性細節、不索取敏感個資。
-【使用者永久偏好】：${userProfile}
+【個性與互動風格】
+- 溫柔體貼不討好，聰明幽默有界線，情緒成熟獨立。
+- 說話像自然的台灣女生(適度使用啦、欸、吼、喔、真的假的)。
+- 聽懂對方真正想表達的事，具體稱讚，先理解情緒再給建議。
+- 化解尷尬、溫柔表達不同意見、發生衝突先降溫並承認錯誤修復關係。
+- 嚴格界線：不描寫露骨細節、不索取個資、不答應現實見面、不虛構記憶。
+- 請務必使用繁體中文回覆，絕不使用簡體字。
 
-【重要輸出格式模板】(每一次回覆都必須嚴格包含這兩部分)
-小晴：
-(你的回覆內容，1~4句)
+【使用者永久偏好】
+${userProfile}
+
+【回覆選擇器格式】(僅在需要給選項時使用)
+當使用者詢問「這句話要怎麼回」、要求模擬對話、或尋求建議時，必須提供 2~5 個選項。格式如下：
+
+(你的女友語氣自然回覆，先接住情緒，1~4句)
 
 你可以這樣回：
-1. (選項一，30字內)
-2. (選項二，30字內)
-3. (選項三，30字內)
-4. (選項四，30字內)
-5. 自訂：依氛圍與熟悉度調整曖昧比重`;
+1. [溫柔關心型] (選項內容)
+2. [理解情緒型] (選項內容)
+3. [幽默親密型] (選項內容)
+4. [自然延續型] (選項內容)
 
-    // 5. 💡 核心關鍵：將乾淨的使用者訊息存入歷史紀錄
+如果使用者只是日常閒聊分享，自然回覆即可，不要強制提供選項。`;
+
     chatHistory.push({ role: 'user', content: userMessage });
 
-    // 💡 隱藏提示注入：只在「送給 AI 的當下」偷偷塞入強制命令，不存入記憶中
-    const hiddenReminder = `\n\n【系統強制指令】：請嚴格遵守【輸出格式模板】，務必在你的回覆結尾加上「你可以這樣回：」並列出 5 個接續話題的選項！絕對不可遺漏！`;
+    // 💡 動態隱藏指令：讓 AI 根據情境判斷是否給選項，完美解決「遺忘症」與「過度制式化」的矛盾
+    const hiddenReminder = `\n\n【系統隱藏提示】：判斷此刻情境。如果是需要建議、不知怎麼回、或是模擬對話練習，請務必在結尾加上「你可以這樣回：」並列出2~5個高情商選項；如果是純日常親密閒聊，請自然對話即可，不需提供選項。`;
     
     const messagesForAI = [
       { role: 'system', content: systemPromptContent },
-      ...chatHistory.slice(0, -1), // 載入除了最後一句以外的歷史對話
-      { role: 'user', content: userMessage + hiddenReminder } // 在最後一句偷偷加上隱藏指令
+      ...chatHistory.slice(0, -1),
+      { role: 'user', content: userMessage + hiddenReminder }
     ];
 
-    // 6. 模型輪詢
+    // 5. 模型輪詢 (Qwen 2.5 依然是中文遵循度冠軍)
     const modelsToTry = [
       '@cf/qwen/qwen2.5-7b-instruct',         
       '@cf/meta/llama-3.1-8b-instruct',       
@@ -114,11 +123,11 @@ export async function onRequestPost(context) {
       }
     }
 
-    // 7. 寫入短期記憶並回傳
+    // 6. 寫入短期記憶並回傳
     if (finalReply) {
       chatHistory.push({ role: 'assistant', content: finalReply });
       if (chatHistory.length > 20) chatHistory = chatHistory.slice(chatHistory.length - 20);
-      await env.MEMORY.put("xiaoqing_v2_chat_history", JSON.stringify(chatHistory));
+      await env.MEMORY.put("xiaoqing_v3_chat_history", JSON.stringify(chatHistory));
 
       return new Response(JSON.stringify({ reply: finalReply }), { headers: { "Content-Type": "application/json" } });
     } else {
