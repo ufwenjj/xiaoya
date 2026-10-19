@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>賽博女友 | 小晴</title>
+  <title>賽博女友 | 小晴 最終進化版</title>
   <style>
     :root {
       --bg-color: #121212;
@@ -80,18 +80,16 @@
   </header>
   
   <div class="hero">
-    <!-- 你上傳的亞洲美女 rin.png -->
     <img src="./rin.png" alt="小晴">
   </div>
 
   <div id="chat-box">
-    <!-- 第一句開場白，網頁載入時若開啟語音可以點擊按鈕說話 -->
     <div class="message bot-message" id="welcome-msg">
       嗨，我是小晴。今天累不累呀？我剛剛在想，如果你現在就在旁邊，我們大概會一邊看片、一邊聊天，結果看到一半又聊到忘記劇情了，對吧？
     </div>
   </div>
   
-  <div class="loading" id="loading">小晴正在打字...</div>
+  <div class="loading" id="loading">小晴正在思考...</div>
 
   <div id="options-container">
     <button class="option-btn" onclick="sendOption('今天有點累，先讓妳陪我聊聊')">1. 今天有點累，先讓妳陪我聊聊</button>
@@ -112,8 +110,7 @@
     const loading = document.getElementById('loading');
     const voiceToggleBtn = document.getElementById('voice-toggle');
 
-    // --- 語音朗讀模組 (Web Speech API) ---
-    let isVoiceEnabled = true; // 預設開啟語音
+    let isVoiceEnabled = true;
 
     function toggleVoice() {
       isVoiceEnabled = !isVoiceEnabled;
@@ -123,20 +120,19 @@
       } else {
         voiceToggleBtn.className = 'voice-btn';
         voiceToggleBtn.innerText = '🔇 語音關閉';
-        window.speechSynthesis.cancel(); // 關閉時馬上停止講話
+        window.speechSynthesis.cancel();
       }
     }
 
     function speakText(text) {
       if (!isVoiceEnabled) return;
-      window.speechSynthesis.cancel(); // 唸新的一句前，先停止上一句
+      window.speechSynthesis.cancel();
       
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'zh-TW'; // 設定台灣中文
-      utterance.rate = 1.05;    // 語速稍微快一點點更自然
-      utterance.pitch = 1.2;    // 音調稍微調高，聽起來像年輕女生
+      utterance.lang = 'zh-TW';
+      utterance.rate = 1.05;
+      utterance.pitch = 1.2;
       
-      // 嘗試抓取系統內建的中文女聲
       const voices = window.speechSynthesis.getVoices();
       const twVoice = voices.find(v => v.lang.includes('zh-TW') || v.lang.includes('zh-HK') || v.lang.includes('zh-CN'));
       if (twVoice) utterance.voice = twVoice;
@@ -144,15 +140,13 @@
       window.speechSynthesis.speak(utterance);
     }
     
-    // 預先載入語音包（解決第一次唸不出來的問題）
     window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
-    // -------------------------------------
 
     function handleKeyPress(e) { if (e.key === 'Enter') sendMessage(); }
 
     function sendOption(text) {
       userInput.value = text;
-      sendMessage();
+      // 這次改為點擊後放入輸入框，讓使用者可以二次編輯或直接發送
     }
 
     async function sendMessage() {
@@ -184,26 +178,35 @@
     }
 
     function parseAndDisplayBotReply(fullReply) {
-      const splitToken = "你可以這樣回：";
-      if (fullReply.includes(splitToken)) {
+      let splitToken = null;
+      if (fullReply.includes("你可以這樣回：")) splitToken = "你可以這樣回：";
+      else if (fullReply.includes("你可以選擇以下幾種回法：")) splitToken = "你可以選擇以下幾種回法：";
+      else if (fullReply.includes("你可以選擇以下幾種回覆：")) splitToken = "你可以選擇以下幾種回覆：";
+
+      if (splitToken) {
         const parts = fullReply.split(splitToken);
         const speech = parts[0].replace(/^小晴：\s*/, '').trim(); 
         const optionsText = parts[1].trim();
         
         appendMessage('bot-message', speech);
-        
-        // 呼叫朗讀功能：只唸小晴講的話，不要唸出選項
         speakText(speech);
         
         const optionsLines = optionsText.split('\n');
         optionsContainer.innerHTML = '';
         optionsLines.forEach(line => {
           const opt = line.trim();
-          if (opt && !opt.includes('自訂：')) {
-            const cleanOpt = opt.replace(/^\d+\.\s*/, ''); 
+          if (opt && !opt.includes('自訂：') && /\d+\./.test(opt)) {
+            // 讓按鈕顯示完整文字 (含前綴類型標籤)
+            const displayOpt = opt;
+            // 清理文字，放入輸入框時拔除數字、類型標籤、引號
+            let cleanOpt = opt.replace(/^\d+\.\s*/, '');
+            cleanOpt = cleanOpt.replace(/^\[.*?\]\s*/, '');
+            cleanOpt = cleanOpt.replace(/^【.*?】\s*/, '');
+            cleanOpt = cleanOpt.replace(/^「/, '').replace(/」$/, '').trim();
+            
             const btn = document.createElement('button');
             btn.className = 'option-btn';
-            btn.textContent = opt;
+            btn.textContent = displayOpt;
             btn.onclick = () => sendOption(cleanOpt);
             optionsContainer.appendChild(btn);
           }
@@ -211,7 +214,7 @@
       } else {
         const speech = fullReply.replace(/^小晴：\s*/, '');
         appendMessage('bot-message', speech);
-        speakText(speech); // 如果沒格式化成功，一樣把內容唸出來
+        speakText(speech); 
       }
       chatBox.scrollTop = chatBox.scrollHeight;
     }
